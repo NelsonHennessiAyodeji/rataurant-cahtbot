@@ -1,79 +1,60 @@
 const { v4: uuidv4 } = require("uuid");
-const paymentService = require("../services/payment.service");
-const { validateInput, validatePayment } = require("../utils/validation");
+const axios = require("axios");
 
 class ChatController {
   constructor() {
     this.menu = [
-      {
-        id: 1,
-        name: "Jollof Rice with Chicken",
-        price: 2500,
-        category: "main",
-      },
-      { id: 2, name: "Fried Rice with Beef", price: 2800, category: "main" },
-      {
-        id: 3,
-        name: "Pounded Yam with Egusi Soup",
-        price: 3200,
-        category: "main",
-      },
-      { id: 4, name: "Spaghetti Bolognese", price: 2000, category: "main" },
-      { id: 5, name: "Chicken Shawarma", price: 1800, category: "fast-food" },
-      { id: 6, name: "Beef Burger", price: 2200, category: "fast-food" },
-      { id: 7, name: "Caesar Salad", price: 1500, category: "salad" },
-      { id: 8, name: "Chapman Drink", price: 800, category: "drinks" },
-      { id: 9, name: "Coca Cola", price: 500, category: "drinks" },
-      { id: 10, name: "Water", price: 300, category: "drinks" },
+      { id: 1, name: "Jollof Rice with Chicken", price: 2500 },
+      { id: 2, name: "Fried Rice with Beef", price: 2800 },
+      { id: 3, name: "Pounded Yam with Egusi Soup", price: 3200 },
+      { id: 4, name: "Spaghetti Bolognese", price: 2000 },
+      { id: 5, name: "Chicken Shawarma", price: 1800 },
+      { id: 6, name: "Beef Burger", price: 2200 },
+      { id: 7, name: "Caesar Salad", price: 1500 },
+      { id: 8, name: "Chapman Drink", price: 800 },
+      { id: 9, name: "Coca Cola", price: 500 },
+      { id: 10, name: "Water", price: 300 },
     ];
-
-    // Bind methods to the instance
-    this.handleMessage = this.handleMessage.bind(this);
-    this.getMenu = this.getMenu.bind(this);
-    this.getMainOptions = this.getMainOptions.bind(this);
-    this.getCurrentOrder = this.getCurrentOrder.bind(this);
-    this.getOrderHistory = this.getOrderHistory.bind(this);
-    this.initializePayment = this.initializePayment.bind(this);
-    this.verifyPayment = this.verifyPayment.bind(this);
-    this.scheduleOrder = this.scheduleOrder.bind(this);
   }
 
-  handleMessage(req, res) {
+  // Use arrow functions to bind 'this'
+  handleMessage = async (req, res) => {
     try {
+      console.log("Received message:", req.body);
+
       const { message } = req.body;
-      const sessionId = req.session.id;
 
-      if (!validateInput(message)) {
-        return res.json({
-          response: "Invalid input. Please enter a valid number.",
-          options: this.getMainOptions(),
-        });
-      }
-
-      const input = parseInt(message);
-
-      if (!req.session.orders) {
+      // Initialize session if not exists
+      if (!req.session.initialized) {
+        req.session.initialized = true;
         req.session.orders = [];
-      }
-
-      if (!req.session.currentOrder) {
         req.session.currentOrder = {
           id: uuidv4(),
           items: [],
           total: 0,
           status: "pending",
-          createdAt: new Date(),
         };
+      }
+
+      // Parse input
+      const input = parseInt(message);
+
+      if (isNaN(input)) {
+        return res.json({
+          response: "Please enter a valid number",
+          options: this.getMainOptions(),
+        });
       }
 
       let response = "";
       let options = "";
 
+      // Handle different inputs
       switch (input) {
         case 1:
           response = this.getMenu();
           options =
-            "Enter item number to add to order, or 99 to checkout, 0 to cancel";
+            "Enter item number (1-10) to add to order, 99 to checkout, or 0 to cancel";
           break;
 
         case 99:
@@ -81,16 +62,24 @@ class ChatController {
             response = "No order to place. Your cart is empty.";
             options = this.getMainOptions();
           } else {
-            req.session.orders.push({ ...req.session.currentOrder });
+            // Save current order to history
+            req.session.orders.push({
+              ...req.session.currentOrder,
+              createdAt: new Date(),
+            });
+
+            // Reset current order
             req.session.currentOrder = {
               id: uuidv4(),
               items: [],
               total: 0,
               status: "pending",
-              createdAt: new Date(),
             };
-            response = "Order placed successfully! Proceed to payment.";
-            options = "Enter 1 to start new order or 2 to pay now";
+
+            response =
+              "Order placed successfully! Your order ID is: " +
+              req.session.orders[req.session.orders.length - 1].id;
+            options = "Enter 1 to start new order or 98 to view order history";
           }
           break;
 
@@ -111,7 +100,6 @@ class ChatController {
               items: [],
               total: 0,
               status: "pending",
-              createdAt: new Date(),
             };
             response = "Order cancelled successfully.";
           } else {
@@ -120,183 +108,129 @@ class ChatController {
           options = this.getMainOptions();
           break;
 
-        case 2:
-          if (
-            req.session.orders.length > 0 &&
-            req.session.orders[req.session.orders.length - 1].status ===
-              "pending"
-          ) {
-            response = "Proceeding to payment...";
-            options = "Please wait while we redirect you to payment.";
-          } else {
-            response = "No pending order to pay for.";
-            options = this.getMainOptions();
-          }
-          break;
-
         default:
+          // Check if it's a menu item (1-10)
           if (input >= 1 && input <= this.menu.length) {
-            const selectedItem = this.menu.find((item) => item.id === input);
-            if (selectedItem) {
-              req.session.currentOrder.items.push(selectedItem);
-              req.session.currentOrder.total += selectedItem.price;
-              response = `Added ${selectedItem.name} to your order. Current total: ₦${req.session.currentOrder.total}`;
-              options =
-                "Enter another item number, 99 to checkout, or 0 to cancel";
-            }
+            const item = this.menu[input - 1];
+            req.session.currentOrder.items.push(item);
+            req.session.currentOrder.total += item.price;
+            response = `Added ${item.name} (₦${item.price}) to your order.`;
+            response += `\nCurrent total: ₦${req.session.currentOrder.total}`;
+            options =
+              "Enter another item number (1-10), 99 to checkout, or 0 to cancel";
           } else {
-            response = "Invalid selection.";
+            response = "Invalid option.";
             options = this.getMainOptions();
           }
       }
 
       res.json({
-        sessionId,
         response,
         options,
         currentOrder: req.session.currentOrder,
       });
     } catch (error) {
-      console.error("Error handling message:", error);
+      console.error("Controller error:", error);
       res.status(500).json({
         response: "An error occurred. Please try again.",
-        options: this.getMainOptions(),
+        options:
+          "Select 1 to Place an order\nSelect 99 to checkout order\nSelect 98 to see order history\nSelect 97 to see current order\nSelect 0 to cancel order",
       });
     }
-  }
+  };
 
-  getMenu() {
-    let menuText = "Our Menu:\n";
-    this.menu.forEach((item) => {
-      menuText += `${item.id}. ${item.name} - ₦${item.price}\n`;
-    });
-    return menuText;
-  }
+  getMenu = () => {
+    return this.menu
+      .map((item) => `${item.id}. ${item.name} - ₦${item.price}`)
+      .join("\n");
+  };
 
-  getMainOptions() {
+  getMainOptions = () => {
     return "Select 1 to Place an order\nSelect 99 to checkout order\nSelect 98 to see order history\nSelect 97 to see current order\nSelect 0 to cancel order";
-  }
+  };
 
-  getCurrentOrder(currentOrder) {
-    if (!currentOrder || currentOrder.items.length === 0) {
-      return "Your current order is empty.";
+  getCurrentOrder = (order) => {
+    if (!order || order.items.length === 0) {
+      return "Your cart is empty.";
     }
 
-    let orderText = "Current Order:\n";
-    currentOrder.items.forEach((item, index) => {
-      orderText += `${index + 1}. ${item.name} - ₦${item.price}\n`;
-    });
-    orderText += `\nTotal: ₦${currentOrder.total}`;
-    return orderText;
-  }
+    const items = order.items
+      .map((item) => `- ${item.name}: ₦${item.price}`)
+      .join("\n");
 
-  getOrderHistory(orders) {
+    return `Current Order:\n${items}\n\nTotal: ₦${order.total}`;
+  };
+
+  getOrderHistory = (orders) => {
     if (!orders || orders.length === 0) {
-      return "No order history available.";
+      return "No order history.";
     }
 
-    let historyText = "Order History:\n";
-    orders.forEach((order, index) => {
-      historyText += `\nOrder ${index + 1} (${order.status}):\n`;
-      order.items.forEach((item) => {
-        historyText += `  - ${item.name} - ₦${item.price}\n`;
-      });
-      historyText += `  Total: ₦${order.total}\n`;
-      historyText += `  Date: ${order.createdAt.toLocaleString()}\n`;
-    });
-    return historyText;
-  }
+    return orders
+      .map((order, index) => {
+        const items = order.items
+          .map((item) => `  ${item.name}: ₦${item.price}`)
+          .join("\n");
 
-  async initializePayment(req, res) {
+        return `Order ${index + 1} (${order.id}):\n${items}\nTotal: ₦${
+          order.total
+        }\n`;
+      })
+      .join("\n");
+  };
+
+  // Payment methods
+  initializePayment = async (req, res) => {
     try {
-      const { amount, email, orderId } = req.body;
+      const { email, amount } = req.body;
 
-      if (!validatePayment({ amount, email })) {
-        return res.status(400).json({ error: "Invalid payment details" });
-      }
-
-      const paymentData = {
-        amount: amount * 100, // Convert to kobo
-        email,
-        reference: `order_${orderId}_${Date.now()}`,
-        callback_url: `${req.protocol}://${req.get("host")}/api/payment/verify`,
-        metadata: {
-          orderId,
-          sessionId: req.session.id,
+      const response = await axios.post(
+        "https://api.paystack.co/transaction/initialize",
+        {
+          email,
+          amount: amount * 100, // Convert to kobo
+          callback_url: `${req.protocol}://${req.get(
+            "host"
+          )}/api/payment/verify`,
         },
-      };
-
-      const paymentResponse = await paymentService.initializePayment(
-        paymentData
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+            "Content-Type": "application/json",
+          },
+        }
       );
 
-      res.json({
-        authorization_url: paymentResponse.data.authorization_url,
-        access_code: paymentResponse.data.access_code,
-        reference: paymentResponse.data.reference,
-      });
+      res.json(response.data);
     } catch (error) {
-      console.error("Payment initialization error:", error);
+      console.error("Payment error:", error.response?.data || error.message);
       res.status(500).json({ error: "Payment initialization failed" });
     }
-  }
+  };
 
-  async verifyPayment(req, res) {
+  verifyPayment = async (req, res) => {
     try {
       const { reference } = req.query;
-      const verification = await paymentService.verifyPayment(reference);
 
-      if (verification.data.status === "success") {
-        const orderId = verification.data.metadata.orderId;
-
-        if (req.session.orders) {
-          req.session.orders = req.session.orders.map((order) => {
-            if (order.id === orderId) {
-              return { ...order, status: "paid", paidAt: new Date() };
-            }
-            return order;
-          });
+      const response = await axios.get(
+        `https://api.paystack.co/transaction/verify/${reference}`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+          },
         }
+      );
 
-        res.redirect(`/?payment=success&reference=${reference}`);
+      if (response.data.data.status === "success") {
+        res.redirect("/?payment=success");
       } else {
-        res.redirect(`/?payment=failed`);
+        res.redirect("/?payment=failed");
       }
     } catch (error) {
-      console.error("Payment verification error:", error);
-      res.redirect(`/?payment=error`);
+      console.error("Verification error:", error);
+      res.redirect("/?payment=error");
     }
-  }
-
-  scheduleOrder(req, res) {
-    try {
-      const { orderId, scheduleTime } = req.body;
-
-      if (!scheduleTime || new Date(scheduleTime) <= new Date()) {
-        return res.status(400).json({ error: "Invalid schedule time" });
-      }
-
-      const order = req.session.orders?.find((o) => o.id === orderId);
-      if (!order) {
-        return res.status(404).json({ error: "Order not found" });
-      }
-
-      order.scheduledFor = new Date(scheduleTime);
-      order.status = "scheduled";
-
-      res.json({
-        success: true,
-        message: `Order scheduled for ${new Date(
-          scheduleTime
-        ).toLocaleString()}`,
-        order,
-      });
-    } catch (error) {
-      console.error("Schedule error:", error);
-      res.status(500).json({ error: "Failed to schedule order" });
-    }
-  }
+  };
 }
 
-const chatController = new ChatController();
-module.exports = chatController;
+module.exports = new ChatController();
