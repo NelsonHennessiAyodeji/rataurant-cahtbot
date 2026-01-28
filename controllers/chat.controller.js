@@ -1,6 +1,5 @@
-// src/controllers/chatController.js
 const { v4: uuidv4 } = require("uuid");
-const paymentService = require("../services/paymentService");
+const paymentService = require("../services/payment.service");
 const { validateInput, validatePayment } = require("../utils/validation");
 
 class ChatController {
@@ -27,6 +26,16 @@ class ChatController {
       { id: 9, name: "Coca Cola", price: 500, category: "drinks" },
       { id: 10, name: "Water", price: 300, category: "drinks" },
     ];
+
+    // Bind methods to the instance
+    this.handleMessage = this.handleMessage.bind(this);
+    this.getMenu = this.getMenu.bind(this);
+    this.getMainOptions = this.getMainOptions.bind(this);
+    this.getCurrentOrder = this.getCurrentOrder.bind(this);
+    this.getOrderHistory = this.getOrderHistory.bind(this);
+    this.initializePayment = this.initializePayment.bind(this);
+    this.verifyPayment = this.verifyPayment.bind(this);
+    this.scheduleOrder = this.scheduleOrder.bind(this);
   }
 
   handleMessage(req, res) {
@@ -207,7 +216,7 @@ class ChatController {
       }
 
       const paymentData = {
-        amount: amount * 100,
+        amount: amount * 100, // Convert to kobo
         email,
         reference: `order_${orderId}_${Date.now()}`,
         callback_url: `${req.protocol}://${req.get("host")}/api/payment/verify`,
@@ -240,12 +249,14 @@ class ChatController {
       if (verification.data.status === "success") {
         const orderId = verification.data.metadata.orderId;
 
-        req.session.orders = req.session.orders.map((order) => {
-          if (order.id === orderId) {
-            return { ...order, status: "paid", paidAt: new Date() };
-          }
-          return order;
-        });
+        if (req.session.orders) {
+          req.session.orders = req.session.orders.map((order) => {
+            if (order.id === orderId) {
+              return { ...order, status: "paid", paidAt: new Date() };
+            }
+            return order;
+          });
+        }
 
         res.redirect(`/?payment=success&reference=${reference}`);
       } else {
@@ -265,7 +276,7 @@ class ChatController {
         return res.status(400).json({ error: "Invalid schedule time" });
       }
 
-      const order = req.session.orders.find((o) => o.id === orderId);
+      const order = req.session.orders?.find((o) => o.id === orderId);
       if (!order) {
         return res.status(404).json({ error: "Order not found" });
       }
@@ -287,4 +298,5 @@ class ChatController {
   }
 }
 
-module.exports = new ChatController();
+const chatController = new ChatController();
+module.exports = chatController;

@@ -8,11 +8,13 @@ require("dotenv").config();
 const chatRoutes = require("./routes/chat");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, "../public")));
+
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, "public")));
 
 app.use(
   session({
@@ -28,8 +30,9 @@ app.use(
 
 app.use("/api", chatRoutes);
 
+// Serve HTML file with css too
 app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "../public/index.html"));
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 app.listen(PORT, () => {

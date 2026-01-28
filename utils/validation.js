@@ -1,4 +1,3 @@
-// src/utils/validation.js
 function validateInput(input) {
   if (!input || input.trim() === "") {
     return false;

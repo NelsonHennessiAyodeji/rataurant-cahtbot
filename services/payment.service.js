@@ -1,4 +1,3 @@
-// src/services/paymentService.js
 const axios = require("axios");
 
 class PaymentService {
