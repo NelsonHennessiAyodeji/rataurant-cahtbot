@@ -1,0 +1,97 @@
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Restaurant ChatBot</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🍽️ Restaurant ChatBot</h1>
+        <p>Order your favorite meals easily</p>
+      </header>
+
+      <main>
+        <div class="chat-container">
+          <div class="chat-header">
+            <h3>Order Assistant</h3>
+            <div class="session-info">
+              Session: <span id="sessionId">...</span>
+            </div>
+          </div>
+
+          <div class="chat-messages" id="chatMessages">
+            <div class="message bot">
+              <div class="message-content">
+                Welcome to our restaurant! How can I help you today?
+              </div>
+              <div class="message-options">
+                Select 1 to Place an order<br />
+                Select 99 to checkout order<br />
+                Select 98 to see order history<br />
+                Select 97 to see current order<br />
+                Select 0 to cancel order
+              </div>
+            </div>
+          </div>
+
+          <div class="chat-input">
+            <input
+              type="number"
+              id="messageInput"
+              placeholder="Enter option number..."
+              min="0"
+              max="99"
+            />
+            <button id="sendButton">Send</button>
+          </div>
+
+          <div class="order-summary" id="orderSummary">
+            <h4>Current Order Summary</h4>
+            <div id="summaryContent">No items in order</div>
+            <div id="totalAmount">Total: ₦0</div>
+          </div>
+        </div>
+
+        <div class="payment-modal" id="paymentModal">
+          <div class="modal-content">
+            <h3>Complete Payment</h3>
+            <form id="paymentForm">
+              <input
+                type="email"
+                id="emailInput"
+                placeholder="Enter your email"
+                required
+              />
+              <input type="hidden" id="orderAmount" />
+              <input type="hidden" id="orderId" />
+              <button type="submit">Proceed to Paystack</button>
+              <button type="button" id="cancelPayment">Cancel</button>
+            </form>
+          </div>
+        </div>
+
+        <div class="schedule-modal" id="scheduleModal">
+          <div class="modal-content">
+            <h3>Schedule Order</h3>
+            <form id="scheduleForm">
+              <input type="datetime-local" id="scheduleTime" required />
+              <input type="hidden" id="scheduleOrderId" />
+              <button type="submit">Schedule Order</button>
+              <button type="button" id="cancelSchedule">Cancel</button>
+            </form>
+          </div>
+        </div>
+      </main>
+
+      <footer>
+        <p>Restaurant ChatBot &copy; 2024 | Test Payment System</p>
+      </footer>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
